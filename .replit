@@ -1,0 +1,13 @@
+run = "bun run dev"
+entrypoint = "server.ts"
+
+[nix]
+channel = "stable-23_11"
+
+[deploy]
+run = ["bash", "-lc", "bun install --production=false && bun run build && bun run server.ts"]
+deploymentTarget = "autoscale"
+
+[[ports]]
+localPort = 56401
+externalPort = 80

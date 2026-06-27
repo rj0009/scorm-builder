@@ -1,0 +1,14 @@
+image: mcr.microsoft.com/devcontainers/base:debian-12
+tasks:
+  - name: Install Bun & deps
+    init: |
+      curl -fsSL https://bun.sh/install | bash
+      export PATH="$HOME/.bun/bin:$PATH"
+      bun install
+    command: |
+      export PATH="$HOME/.bun/bin:$PATH"
+      bun run dev
+ports:
+  - port: 56401
+    onOpen: open-browser
+    visibility: public

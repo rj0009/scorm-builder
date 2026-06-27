@@ -1,6 +1,25 @@
 # SCORM Builder
 
+**Live app:** https://scorm-builder-rj009.zocomputer.io  ·  **Run locally:** `./setup.sh && bun run dev`
+
 Upload a PDF or PPTX training material → preview extracted chunks → arrange modules → write quizzes → export a SCORM 1.2 ZIP package ready to upload to any LMS (Moodle, TalentLMS, Canvas, LearnDash, etc.).
+
+## Quick start (one command)
+
+```bash
+git clone https://github.com/rj009/scorm-builder.git
+cd scorm-builder
+./setup.sh
+bun run dev    # opens http://localhost:56401
+```
+
+Or without cloning — use GitHub Codespaces (browser-based VS Code, free 60 hr/month):
+
+> Open `https://github.com/rj009/scorm-builder` → green **Code** button → **Codespaces** tab → **Create codespace on main**. The dev server auto-starts; click the forwarded port URL.
+
+Or Gitpod (free tier):
+
+> [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/rj009/scorm-builder)
 
 ## Stack
 
@@ -89,3 +108,18 @@ Tested with:
 - PPTX extraction drops images (text only)
 - One organization per package, no nested organizations
 - Quiz types: multiple-choice (single answer) only
+
+## Run anywhere
+
+Every "runnable" path is one click or one command:
+
+| Platform | How |
+|----------|-----|
+| **Live app** | https://scorm-builder-rj009.zocomputer.io (already running) |
+| **Local (Linux/macOS/WSL)** | `./setup.sh && bun run dev` |
+| **GitHub Codespaces** | click the green "Code" button → "Codespaces" → "New codespace" (auto-installs Bun + deps) |
+| **Gitpod** | click the Gitpod badge → opens a cloud VS Code → auto-runs the app |
+| **Replit** | import from GitHub → click Run |
+| **Docker** | `docker build -t scorm-builder . && docker run -p 56401:56401 scorm-builder` |
+
+Then open http://localhost:56401.

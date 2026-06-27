@@ -1,0 +1,20 @@
+{
+  "name": "SCORM Builder",
+  "image": "mcr.microsoft.com/devcontainers/base:debian-12",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {}
+  },
+  "postCreateCommand": "curl -fsSL https://bun.sh/install | bash && export PATH=\"$HOME/.bun/bin:$PATH\" && bun install && echo '✓ SCORM Builder ready. Run: bun run dev'",
+  "forwardPorts": [56401],
+  "portsAttributes": {
+    "56401": {
+      "label": "SCORM Builder",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["oven.bun-vscode"]
+    }
+  }
+}
