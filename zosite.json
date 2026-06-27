@@ -1,0 +1,15 @@
+{
+  "name": "scorm-builder",
+  "local_port": 56401,
+  "entrypoint": "bun run dev",
+  "publish": {
+    "label": "scorm-builder",
+    "type": "http",
+    "entrypoint": "bun run prod",
+    "published_port": 57031,
+    "env": {
+      "NODE_ENV": "production",
+      "ZO_CLIENT_IDENTITY_TOKEN": "none"
+    }
+  }
+}
