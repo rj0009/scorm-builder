@@ -6,7 +6,8 @@
     "dev": "bun run clear-cache && NODE_ENV=development bun run --hot server.ts",
     "build": "bun run clear-cache && vite build",
     "prod": "bun run build && NODE_ENV=production bun run server.ts",
-    "preview": "bun run vite preview"
+    "preview": "bun run vite preview",
+    "test:conformance": "bun scripts/test-conformance.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
