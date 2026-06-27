@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { AppState, Module, Chunk } from "../App";
-import { plainTextToHtml, slugify } from "../lib/utils";
+import { plainTextToHtml, slugify, buildModulesAndQuizzesFromChunks } from "../lib/utils";
 import { ArrowLeft, ArrowRight, Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 
 type Props = {
@@ -14,13 +14,9 @@ export function ModulesStep({ state, update, onNext, onBack }: Props) {
   const [editingIdx, setEditingIdx] = useState<number | null>(0);
 
   const autoFromChunks = () => {
-    const mods: Module[] = state.chunks.map((c) => ({
-      id: slugify(c.title || `section-${c.index + 1}`),
-      title: c.title || `Module ${c.index + 1}`,
-      contentHtml: plainTextToHtml(c.content),
-      sourceChunkIndex: c.index,
-    }));
-    update({ modules: mods, quizzes: [] });
+    const { modules: mods, quizzes: qz } =
+      buildModulesAndQuizzesFromChunks(state.chunks, state.passMark, slugify);
+    update({ modules: mods, quizzes: qz });
     setEditingIdx(0);
   };
 

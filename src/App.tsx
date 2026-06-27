@@ -5,7 +5,13 @@ import { QuizzesStep } from "./components/QuizzesStep";
 import { BuildStep } from "./components/BuildStep";
 import { BookOpen, FileUp, ListChecks, Package } from "lucide-react";
 
-export type Chunk = { index: number; title: string; content: string; source: string };
+export type Chunk = {
+  index: number;
+  title: string;
+  content: string;
+  source: string;
+  suggestedQuestions?: QuizQuestion[];
+};
 
 export type Module = { id: string; title: string; contentHtml: string; sourceChunkIndex?: number };
 

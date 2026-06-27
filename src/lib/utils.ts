@@ -1,4 +1,5 @@
 import { clsx, type ClassValue } from "clsx";
+import type { Chunk, Module, Quiz } from "../App";
 import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]): string {
@@ -86,4 +87,32 @@ export function plainTextToHtml(text: string): string {
   }
 
   return out.join("\n");
+}
+
+// Convert chunks into modules and seed quizzes from each chunk's suggestedQuestions.
+// Used to auto-build the course right after ingest — no manual button needed.
+export function buildModulesAndQuizzesFromChunks(
+  chunks: Chunk[],
+  passMark: number,
+  slugifyFn: (s: string) => string,
+): { modules: Module[]; quizzes: Quiz[] } {
+  const modules: Module[] = [];
+  const quizzes: Quiz[] = [];
+  for (const c of chunks) {
+    const id = slugifyFn(c.title || `section-${c.index + 1}`);
+    modules.push({
+      id,
+      title: c.title || `Module ${c.index + 1}`,
+      contentHtml: plainTextToHtml(c.content),
+      sourceChunkIndex: c.index,
+    });
+    const qs = (c.suggestedQuestions || []).map((q) => ({
+      ...q,
+      id: `q-${id}-${Math.random().toString(36).slice(2, 8)}`,
+    }));
+    if (qs.length > 0) {
+      quizzes.push({ moduleId: id, passingScore: passMark, questions: qs });
+    }
+  }
+  return { modules, quizzes };
 }

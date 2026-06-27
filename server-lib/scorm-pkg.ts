@@ -7,6 +7,7 @@ export type QuizQuestion = {
   choices: string[];
   correctIndex: number;
   explanation?: string;
+  type?: string;
 };
 
 export type Quiz = {

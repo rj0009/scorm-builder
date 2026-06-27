@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { AppState, Chunk } from "../App";
 import { Upload, Loader2, FileText, Presentation, ChevronRight, Trash2 } from "lucide-react";
+import { buildModulesAndQuizzesFromChunks, slugify } from "../lib/utils";
 
 type Props = {
   state: AppState;
@@ -26,10 +27,14 @@ export function IngestStep({ state, update, onNext }: Props) {
         throw new Error(j.error || `Ingest failed (HTTP ${r.status})`);
       }
       const result = await r.json();
+      const chunks = (result.chunks as Chunk[]);
+      const { modules, quizzes } = buildModulesAndQuizzesFromChunks(chunks, state.passMark, slugify);
       update({
         sourceFile: { name: file.name, mime: result.mime, size: file.size },
-        chunks: result.chunks as Chunk[],
+        chunks: chunks,
         courseTitle: file.name.replace(/\.(pdf|pptx)$/i, ""),
+        modules,
+        quizzes,
       });
     } catch (e: any) {
       setError(e?.message || "Upload failed");

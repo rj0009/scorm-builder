@@ -1,0 +1,16 @@
+{
+  "documents": [
+    {
+      "name": "Workplace Safety",
+      "text": "Hazards can be physical, chemical, or ergonomic. A physical hazard includes slips, trips, and falls. A chemical hazard is any substance that can cause harm. Ergonomic hazards refer to repetitive motion injuries. Always wear personal protective equipment. PPE stands for personal protective equipment and includes gloves, helmets, and goggles. Report all accidents immediately. Reporting helps prevent future accidents. Emergency exits must remain unobstructed at all times. Fire drills are conducted monthly to ensure everyone knows how to evacuate safely."
+    },
+    {
+      "name": "Cybersecurity Basics",
+      "text": "Phishing is a social engineering attack that uses fraudulent emails. A strong password contains at least twelve characters with mixed case letters, numbers, and symbols. Two-factor authentication adds an extra layer of security beyond passwords. Malware is malicious software designed to damage computer systems. Ransomware is a type of malware that encrypts files until a ransom is paid. Always verify the sender before clicking any link. Public Wi-Fi networks are inherently insecure. A VPN encrypts your internet traffic on untrusted networks."
+    },
+    {
+      "name": "Customer Service",
+      "text": "Active listening means giving full attention to the customer without interrupting. Empathy is the ability to understand and share the feelings of another person. First call resolution means resolving the customer's issue on their first contact. Customer satisfaction measures how products and services meet customer expectations. A complaint is an expression of dissatisfaction about a product or service. Always remain calm when dealing with frustrated customers. Apologize sincerely when a mistake has been made. Follow up to confirm the issue has been resolved."
+    }
+  ]
+}

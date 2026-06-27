@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 import { PDFParse } from "pdf-parse";
+import { autoGenerateQuiz } from "./auto-quiz";
 
 export type IngestedChunk = {
   index: number;
@@ -175,8 +176,17 @@ export async function ingestBuffer(
     );
   }
 
+  // Strip pdf-parse page markers ("-- 2 of 4 --" or "– 2 of 4 –") that leak into the text
+  fullText = fullText.replace(/[-–—_]\s*\d+\s+of\s+\d+\s*[-–—]?/g, " ").replace(/^\s*--\s*$/gm, "").replace(/--\s*$/gm, "").replace(/^\s*-\s*-\s*$/gm, "");
+
   let chunks: IngestedChunk[];
   if (perSlideChunks && perSlideChunks.length > 0) {
+    // Strip any page markers that leaked into slide text
+    perSlideChunks = perSlideChunks.map((s) => ({
+      ...s,
+      title: s.title.replace(/[-–—]\s*\d+\s+of\s+\d+\s*[-–—]?/g, "").trim(),
+      content: s.content.replace(/[-–—]\s*\d+\s+of\s+\d+\s*[-–—]?/g, "").trim(),
+    }));
     chunks = perSlideChunks.map((s) => ({
       index: s.index,
       title: s.title || `Slide ${s.index + 1}`,
@@ -186,6 +196,16 @@ export async function ingestBuffer(
   } else {
     chunks = splitIntoSections(fullText, filename);
   }
+
+  // Auto-generate a quiz for each chunk using plain text only
+  chunks = chunks.map((c) => ({
+    ...c,
+    suggestedQuestions: autoGenerateQuiz({
+      id: `ch-${c.index}`,
+      title: c.title,
+      text: c.content,
+    }),
+  }));
 
   return {
     filename,
