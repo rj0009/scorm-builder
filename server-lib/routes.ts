@@ -1,6 +1,8 @@
 import type { Context } from "hono";
 import { ingestBuffer } from "./ingest";
 import { buildScormPackage, type BuildInput } from "./scorm-pkg";
+import demoCourse, { getDemoChunks, getDemoSourceFile } from "./demo";
+import { enhanceModule } from "./llm";
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
@@ -33,6 +35,56 @@ export async function handleIngest(c: Context): Promise<Response> {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[ingest] error:", msg);
+    return c.json({ error: msg }, 500);
+  }
+}
+
+// GET /api/demo — returns a built-in demo course (chunks + modules + quizzes)
+// so users can explore the app without uploading a PDF/PPTX.
+export async function handleDemo(c: Context): Promise<Response> {
+  try {
+    const demoChunkCount = getDemoChunks().length;
+    return c.json({
+      filename: `${demoCourse.courseTitle}.demo`,
+      mime: "application/x-scorm-demo",
+      totalChunks: demoChunkCount,
+      fullText:
+        "This is a built-in demo course. Use 'Load demo' to seed a full SCORM 1.2 package with 3 ready-made lessons and quizzes.",
+      chunks: getDemoChunks(),
+      sourceFile: getDemoSourceFile(),
+      demo: {
+        courseTitle: demoCourse.courseTitle,
+        courseDescription: demoCourse.courseDescription,
+        passMark: demoCourse.passMark,
+        modules: demoCourse.modules,
+        quizzes: demoCourse.quizzes,
+      },
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[demo] error:", msg);
+    return c.json({ error: msg }, 500);
+  }
+}
+
+// POST /api/enhance-module — uses an LLM to rewrite a short module's source
+// into a comprehensive SCORM lesson and propose quiz questions.
+export async function handleEnhance(c: Context): Promise<Response> {
+  try {
+    const body = await c.req.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return c.json({ error: "Invalid JSON body." }, 400);
+    }
+    const title = typeof body.title === "string" ? body.title.trim() : "";
+    const content = typeof body.content === "string" ? body.content : "";
+    if (!title) return c.json({ error: "title is required." }, 400);
+    if (!content.trim()) return c.json({ error: "content is required." }, 400);
+
+    const result = await enhanceModule({ title, content });
+    return c.json(result);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[enhance] error:", msg);
     return c.json({ error: msg }, 500);
   }
 }

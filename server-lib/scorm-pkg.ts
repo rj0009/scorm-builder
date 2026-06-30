@@ -197,6 +197,74 @@ const SCORM_RUNTIME = `/* SCORM 1.2 quiz runtime — renders the quiz and writes
 })();
 `;
 
+const SCORM_NARRATION = `(function() {
+  var TTS = {};
+  TTS.supported = ("speechSynthesis" in window) && ("SpeechSynthesisUtterance" in window);
+  TTS.speaking = false;
+  TTS.currentUtterance = null;
+  TTS.onStateChange = null;
+
+  // Chrome bug: speech stops after ~15s if not re-pinged. Workaround by monitoring.
+  TTS.chromeWorkaround = function() {
+    var interval = setInterval(function() {
+      if (!TTS.speaking) { clearInterval(interval); return; }
+      if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+        // Speech has been going for >14s — pause+resume to keep alive.
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      }
+    }, 14000);
+    return interval;
+  };
+
+  TTS.speak = function(text) {
+    if (!TTS.supported || !text) return false;
+    TTS.stop();
+    var u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.0; u.pitch = 1.0; u.volume = 1.0; u.lang = "en-US";
+    u.onstart = function() { TTS.speaking = true; TTS._keepalive = TTS.chromeWorkaround(); if (TTS.onStateChange) TTS.onStateChange("playing"); };
+    u.onend = function() { TTS.speaking = false; if (TTS._keepalive) clearInterval(TTS._keepalive); if (TTS.onStateChange) TTS.onStateChange("idle"); };
+    u.onerror = function(e) { TTS.speaking = false; if (TTS._keepalive) clearInterval(TTS._keepalive); if (TTS.onStateChange) TTS.onStateChange("error", e); };
+    TTS.currentUtterance = u;
+    window.speechSynthesis.speak(u);
+    return true;
+  };
+
+  TTS.pause = function() {
+    if (TTS.supported && TTS.speaking) { window.speechSynthesis.pause(); if (TTS.onStateChange) TTS.onStateChange("paused"); }
+  };
+
+  TTS.resume = function() {
+    if (TTS.supported) { window.speechSynthesis.resume(); if (TTS.onStateChange) TTS.onStateChange("playing"); }
+  };
+
+  TTS.stop = function() {
+    if (TTS.supported) { window.speechSynthesis.cancel(); TTS.speaking = false; if (TTS._keepalive) clearInterval(TTS._keepalive); if (TTS.onStateChange) TTS.onStateChange("idle"); }
+  };
+
+  TTS.readPage = function() {
+    var contentEl = document.querySelector(".module-content");
+    if (!contentEl) return false;
+    var text = contentEl.innerText || contentEl.textContent || "";
+    // Strip excessive whitespace
+    text = text.replace(/\\s+/g, " ").trim();
+    return TTS.speak(text);
+  };
+
+  TTS.readQuizQuestion = function(questionIndex) {
+    var qblocks = document.querySelectorAll(".qblock");
+    if (!qblocks[questionIndex]) return false;
+    var prompt = qblocks[questionIndex].querySelector(".qprompt");
+    var choices = qblocks[questionIndex].querySelectorAll(".qchoice");
+    var parts = [];
+    if (prompt) parts.push(prompt.innerText);
+    choices.forEach(function(c, i) { parts.push("Option " + (i+1) + ": " + (c.innerText || "")); });
+    return TTS.speak(parts.join(". "));
+  };
+
+  window.TTS = TTS;
+})();`;
+
 function buildManifest(input: BuildInput, safeTitle: string): string {
   const now = new Date().toISOString();
   const courseId = `CRS-${Date.now()}`;
@@ -220,6 +288,8 @@ function buildManifest(input: BuildInput, safeTitle: string): string {
         `      <file href="content/module-${i + 1}.html" />\n` +
         `      <file href="scorm_api_wrapper.js" />\n` +
         `      <file href="scorm_runtime.js" />\n` +
+        `      <file href="scorm_narration.js" />
+` +
         `    </resource>`
     )
     .join("\n");
@@ -364,6 +434,13 @@ function buildScoHtml(opts: {
 
   <div id="statusBox" class="status">Connecting to LMS…</div>
 
+<div class="narr-bar">
+<button id="narrPlay" type="button" class="narr-btn" title="Play narration">▶ Play</button>
+<button id="narrPause" type="button" class="narr-btn" title="Pause" disabled>⏸ Pause</button>
+<button id="narrStop" type="button" class="narr-btn" title="Stop" disabled>⏹ Stop</button>
+<span id="narrStatus" class="narr-status">off</span>
+</div>
+<style>.narr-bar{margin-top:1rem;display:flex;gap:.5rem;align-items:center}.narr-btn{background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:.35rem .75rem;font-size:.85rem;cursor:pointer}.narr-btn:hover:not(:disabled){background:#f3f4f6}.narr-btn:disabled{opacity:.4;cursor:not-allowed}.narr-status{font-size:.8rem;color:#6b7280;margin-left:.25rem}</style>
   <div class="nav">
     <a href="${prevHref}" class="secondary" id="prevBtn">← Previous</a>
     <a href="${nextHref}" id="nextBtn">${isLast ? "Finish Course →" : "Next Module →"}</a>
@@ -371,6 +448,7 @@ function buildScoHtml(opts: {
 
 <script src="../scorm_api_wrapper.js"></script>
 <script src="../scorm_runtime.js"></script>
+<script src="../scorm_narration.js"></script>
 <script>
 (function() {
   const moduleTitle = ${JSON.stringify(m.title)};
@@ -384,6 +462,7 @@ function buildScoHtml(opts: {
   function setStatus(text, ok) {
     statusEl.textContent = text;
     statusEl.className = "status" + (ok === true ? " connected" : ok === false ? " error" : "");
+
   }
 
   const lms = SCORM_API.init();
@@ -462,6 +541,7 @@ function buildScoHtml(opts: {
 
 export async function buildScormPackage(input: BuildInput): Promise<Buffer> {
   const zip = new JSZip();
+  zip.file("scorm_narration.js", SCORM_NARRATION);
   const safeTitle = (input.courseTitle || "Untitled Course").trim();
 
   zip.file("imsmanifest.xml", buildManifest(input, safeTitle));

@@ -1,12 +1,27 @@
 import { useRef, useState } from "react";
-import type { AppState, Chunk } from "../App";
-import { Upload, Loader2, FileText, Presentation, ChevronRight, Trash2 } from "lucide-react";
-import { buildModulesAndQuizzesFromChunks, slugify } from "../lib/utils";
+import type { AppState, Chunk, Module, Quiz } from "../App";
+import { Upload, Loader2, FileText, Presentation, ChevronRight, Trash2, Sparkles } from "lucide-react";
+import { slugify } from "../lib/utils";
 
 type Props = {
   state: AppState;
   update: (patch: Partial<AppState>) => void;
   onNext: () => void;
+};
+
+type DemoResponse = {
+  filename: string;
+  mime: string;
+  totalChunks: number;
+  chunks: Chunk[];
+  sourceFile: { name: string; mime: string; size: number };
+  demo: {
+    courseTitle: string;
+    courseDescription: string;
+    passMark: number;
+    modules: Module[];
+    quizzes: Quiz[];
+  };
 };
 
 export function IngestStep({ state, update, onNext }: Props) {
@@ -28,16 +43,47 @@ export function IngestStep({ state, update, onNext }: Props) {
       }
       const result = await r.json();
       const chunks = (result.chunks as Chunk[]);
-      const { modules, quizzes } = buildModulesAndQuizzesFromChunks(chunks, state.passMark, slugify);
+      // Chunks are previewed but NO modules/quizzes are auto-populated until
+      // the user clicks "Next" and goes to the Modules step (which adds a
+      // blank module per chunk for them to edit).
       update({
         sourceFile: { name: file.name, mime: result.mime, size: file.size },
-        chunks: chunks,
+        chunks,
         courseTitle: file.name.replace(/\.(pdf|pptx)$/i, ""),
-        modules,
-        quizzes,
+        modules: [],
+        quizzes: [],
       });
     } catch (e: any) {
       setError(e?.message || "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const loadDemo = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await fetch("/api/demo", { method: "GET" });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+        throw new Error(j.error || `Demo load failed (HTTP ${r.status})`);
+      }
+      const result = (await r.json()) as DemoResponse;
+      // Demo: hydrate modules + quizzes so the user can immediately see
+      // what a finished course looks like. The "Load demo" button is the
+      // only way this content enters the wizard — never auto-populated.
+      update({
+        sourceFile: result.sourceFile,
+        chunks: result.chunks,
+        courseTitle: result.demo.courseTitle,
+        courseDescription: result.demo.courseDescription,
+        modules: result.demo.modules,
+        quizzes: result.demo.quizzes,
+        passMark: result.demo.passMark,
+      });
+    } catch (e: any) {
+      setError(e?.message || "Demo load failed");
     } finally {
       setBusy(false);
     }
@@ -53,52 +99,73 @@ export function IngestStep({ state, update, onNext }: Props) {
     upload(f);
   };
 
+  const isDemo = state.sourceFile?.mime === "application/x-scorm-demo";
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold mb-1">1 · Upload training material</h2>
         <p className="text-sm text-muted-foreground">
-          Upload a PDF or PowerPoint (.pptx). The app will extract content and split it into
-          modules automatically.
+          Upload a PDF or PowerPoint (.pptx), or load a built-in demo to explore the
+          builder. Nothing is pre-populated — your course only appears after you
+          choose one of these options.
         </p>
       </div>
 
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragOver(false);
-          const f = e.dataTransfer.files?.[0];
-          onFile(f);
-        }}
-        onClick={() => fileRef.current?.click()}
-        className={`border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition ${
-          dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/40 bg-card/30"
-        }`}
-      >
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".pdf,.pptx"
-          className="hidden"
-          onChange={(e) => onFile(e.target.files?.[0])}
-        />
-        {busy ? (
-          <div className="flex items-center justify-center gap-2 text-muted-foreground">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span>Extracting text…</span>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            const f = e.dataTransfer.files?.[0];
+            onFile(f);
+          }}
+          onClick={() => fileRef.current?.click()}
+          className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition ${
+            dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/40 bg-card/30"
+          }`}
+        >
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".pdf,.pptx"
+            className="hidden"
+            onChange={(e) => onFile(e.target.files?.[0])}
+          />
+          {busy ? (
+            <div className="flex items-center justify-center gap-2 text-muted-foreground py-6">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>Extracting text…</span>
+            </div>
+          ) : (
+            <>
+              <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+              <div className="font-medium">Click or drag a file here</div>
+              <div className="text-xs text-muted-foreground mt-1">PDF or PPTX · up to 50 MB</div>
+            </>
+          )}
+        </div>
+
+        <button
+          onClick={loadDemo}
+          disabled={busy}
+          className="border-2 border-dashed border-border rounded-lg p-8 text-left bg-card/30 hover:border-primary/40 transition disabled:opacity-50"
+        >
+          <Sparkles className="w-10 h-10 mb-3 text-primary" />
+          <div className="font-medium">Load demo</div>
+          <div className="text-xs text-muted-foreground mt-1">
+            Pre-built 3-module course with quizzes — see the full builder flow
+            without uploading anything.
           </div>
-        ) : (
-          <>
-            <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
-            <div className="font-medium">Click or drag a file here</div>
-            <div className="text-xs text-muted-foreground mt-1">PDF or PPTX · up to 50 MB</div>
-          </>
-        )}
+          <div className="mt-3 text-xs font-medium text-primary">
+            {busy ? "Loading…" : "Click to load"}
+          </div>
+        </button>
       </div>
 
       {error && (
@@ -110,7 +177,9 @@ export function IngestStep({ state, update, onNext }: Props) {
       {state.sourceFile && (
         <div className="bg-card border border-border rounded-lg p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {state.sourceFile.name.toLowerCase().endsWith(".pdf") ? (
+            {isDemo ? (
+              <Sparkles className="w-6 h-6 text-primary" />
+            ) : state.sourceFile.name.toLowerCase().endsWith(".pdf") ? (
               <FileText className="w-6 h-6 text-primary" />
             ) : (
               <Presentation className="w-6 h-6 text-primary" />
@@ -118,7 +187,7 @@ export function IngestStep({ state, update, onNext }: Props) {
             <div>
               <div className="font-medium">{state.sourceFile.name}</div>
               <div className="text-xs text-muted-foreground">
-                {(state.sourceFile.size / 1024 / 1024).toFixed(2)} MB ·{" "}
+                {isDemo ? "Built-in demo · " : `${(state.sourceFile.size / 1024 / 1024).toFixed(2)} MB · `}
                 {state.chunks.length} chunks extracted
               </div>
             </div>

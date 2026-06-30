@@ -3,7 +3,7 @@ import type { ViteDevServer } from "vite";
 import { createServer as createViteServer } from "vite";
 import config from "./zosite.json";
 import { Hono } from "hono";
-import { handleIngest, handleBuild } from "./server-lib/routes";
+import { handleIngest, handleBuild, handleDemo, handleEnhance } from "./server-lib/routes";
 
 type Mode = "development" | "production";
 const app = new Hono();
@@ -13,6 +13,8 @@ const mode: Mode =
 
 app.post("/api/ingest", handleIngest);
 app.post("/api/build", handleBuild);
+app.get("/api/demo", handleDemo);
+app.post("/api/enhance-module", handleEnhance);
 app.get("/api/health", (c) => c.json({ ok: true, mode, ts: Date.now() }));
 
 if (mode === "production") {
