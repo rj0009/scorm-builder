@@ -1,5 +1,4 @@
 import { handle } from 'hono/vercel';
-import { app } from '../server';
+import { app } from '../server-lib/app';
 
-// Vercel serverless function entrypoint
 export default handle(app);

@@ -2,21 +2,11 @@ import { serveStatic } from "hono/bun";
 import type { ViteDevServer } from "vite";
 import { createServer as createViteServer } from "vite";
 import config from "./zosite.json";
-import { Hono } from "hono";
-import { handleIngest, handleBuild, handleDemo, handleEnhance } from "./server-lib/routes";
+import { app } from "./server-lib/app";
 
 type Mode = "development" | "production";
-const app = new Hono();
-export { app }; // Export for Vercel adapter
-
 const mode: Mode =
   process.env.NODE_ENV === "production" ? "production" : "development";
-
-app.post("/api/ingest", handleIngest);
-app.post("/api/build", handleBuild);
-app.get("/api/demo", handleDemo);
-app.post("/api/enhance-module", handleEnhance);
-app.get("/api/health", (c) => c.json({ ok: true, mode, ts: Date.now() }));
 
 if (mode === "production") {
   configureProduction(app);
@@ -32,10 +22,10 @@ const port = process.env.PORT
 
 export default { fetch: app.fetch, port, idleTimeout: 255 };
 
-function configureProduction(app: Hono) {
+function configureProduction(app: any) {
   app.use("/assets/*", serveStatic({ root: "./dist" }));
-  app.get("/favicon.ico", (c) => c.redirect("/favicon.svg", 302));
-  app.use(async (c, next) => {
+  app.get("/favicon.ico", (c: any) => c.redirect("/favicon.svg", 302));
+  app.use(async (c: any, next: any) => {
     if (c.req.method !== "GET") return next();
 
     const path = c.req.path;
@@ -53,13 +43,13 @@ function configureProduction(app: Hono) {
   });
 }
 
-async function configureDevelopment(app: Hono): Promise<ViteDevServer> {
+async function configureDevelopment(app: any): Promise<ViteDevServer> {
   const vite = await createViteServer({
     server: { middlewareMode: true, hmr: false, ws: false },
     appType: "custom",
   });
 
-  app.use("*", async (c, next) => {
+  app.use("*", async (c: any, next: any) => {
     if (c.req.path.startsWith("/api/")) return next();
     if (c.req.path === "/favicon.ico") return c.redirect("/favicon.svg", 302);
 
