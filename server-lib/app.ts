@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { handleIngest, handleBuild, handleDemo, handleEnhance } from "./server-lib/routes";
+import { handleIngest, handleBuild, handleDemo, handleEnhance } from "./routes";
 
 export const app = new Hono();
 
