@@ -7,6 +7,7 @@ import { handleIngest, handleBuild, handleDemo, handleEnhance } from "./server-l
 
 type Mode = "development" | "production";
 const app = new Hono();
+export { app }; // Export for Vercel adapter
 
 const mode: Mode =
   process.env.NODE_ENV === "production" ? "production" : "development";
