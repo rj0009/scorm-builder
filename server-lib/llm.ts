@@ -19,7 +19,60 @@
 
 import { autoGenerateQuiz } from "./auto-quiz";
 import { generateLocalQuestions } from "./local-questions";
-import { plainTextToHtml } from "../src/lib/utils";
+
+// Inlined from src/lib/utils so server-lib never pulls in the React/frontend
+// tree (Vercel serverless functions can't bundle React components).
+function plainTextToHtml(text: string): string {
+  if (!text) return "";
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const out: string[] = [];
+  let i = 0;
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const inline = (s: string) =>
+    esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  while (i < lines.length) {
+    const raw = lines[i];
+    const line = raw.trimEnd();
+    if (!line.trim()) { i++; continue; }
+    let j = i;
+    while (j + 1 < lines.length && lines[j + 1].trim().startsWith("- ")) j++;
+    if (j > i) {
+      out.push("<ul>");
+      for (let k = i; k <= j; k++) {
+        out.push("<li>" + inline(lines[k].trim().slice(2)) + "</li>");
+      }
+      out.push("</ul>");
+      i = j + 1;
+      continue;
+    }
+    const numberedMatch = lines.slice(i).find((l) => /^\d+\.\s/.test(l.trim()));
+    if (numberedMatch) {
+      const blocks: string[][] = [[]];
+      for (let k = i; k < lines.length; k++) {
+        const t = lines[k].trim();
+        if (/^\d+\.\s/.test(t)) {
+          if (blocks[blocks.length - 1].length) blocks.push([]);
+          blocks[blocks.length - 1].push(t.replace(/^\d+\.\s/, ""));
+        } else if (t) {
+          blocks[blocks.length - 1].push(t);
+        } else if (blocks[blocks.length - 1].length) {
+          blocks.push([]);
+        }
+      }
+      out.push("<ol>");
+      for (const block of blocks) {
+        if (!block.length) continue;
+        out.push("<li>" + inline(block.join(" ")) + "</li>");
+      }
+      out.push("</ol>");
+      break;
+    }
+    out.push("<p>" + inline(line) + "</p>");
+    i++;
+  }
+  return out.join("\n");
+}
 
 export type EnhancedModule = {
   title: string;
