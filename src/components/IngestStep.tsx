@@ -30,6 +30,17 @@ export function IngestStep({ state, update, onNext }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
+  // Persist user's BYOK Gemini key in localStorage so the Enhance-with-AI
+  // feature can use it across steps.
+  const [geminiKey, setGeminiKey] = useState<string>(
+    () => localStorage.getItem("scorm_builder_gemini_key") || ""
+  );
+  const saveGeminiKey = (v: string) => {
+    setGeminiKey(v);
+    if (v.trim()) localStorage.setItem("scorm_builder_gemini_key", v.trim());
+    else localStorage.removeItem("scorm_builder_gemini_key");
+  };
+
   const upload = async (file: File) => {
     setBusy(true);
     setError(null);
@@ -106,10 +117,27 @@ export function IngestStep({ state, update, onNext }: Props) {
       <div>
         <h2 className="text-2xl font-bold mb-1">1 · Upload training material</h2>
         <p className="text-sm text-muted-foreground">
-          Upload a PDF or PowerPoint (.pptx), or load a built-in demo to explore the
-          builder. Nothing is pre-populated — your course only appears after you
-          choose one of these options.
+          Upload a PDF or PowerPoint (.pptx). The app will extract content and split it into
+          modules automatically.
         </p>
+      </div>
+
+      <div className="bg-card border border-border rounded-lg p-4 space-y-2">
+        <label className="block">
+          <span className="text-xs font-medium text-muted-foreground">
+            Google Gemini API key (optional · for Enhance with AI)
+          </span>
+          <input
+            type="password"
+            className="mt-1 w-full bg-input border border-border rounded-md px-3 py-2 text-sm font-mono"
+            placeholder="AIzaSy…"
+            value={geminiKey}
+            onChange={(e) => saveGeminiKey(e.target.value)}
+          />
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            Stored only in your browser (localStorage). Used by the "Enhance with AI" feature on the next step.
+          </div>
+        </label>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

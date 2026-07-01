@@ -72,22 +72,21 @@ async function callOpenAI(system: string, user: string, timeoutMs = 45_000): Pro
   }
 }
 
-async function callAnthropic(system: string, user: string, timeoutMs = 45_000): Promise<string | null> {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return null;
+async function callAnthropic(system: string, user: string, apiKey: string, timeoutMs = 45_000): Promise<string | null> {
+  if (!apiKey) return null;
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(ANTHROPIC_URL, {
       method: "POST",
       headers: {
-        "x-api-key": key,
+        "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
       },
       body: JSON.stringify({
         model: process.env.ANTHROPIC_MODEL || "claude-3-5-haiku-latest",
-        max_tokens: 2048,
+        max_tokens: 4000,
         system,
         messages: [{ role: "user", content: user }],
       }),
@@ -107,9 +106,60 @@ async function callAnthropic(system: string, user: string, timeoutMs = 45_000): 
   }
 }
 
-async function callLLM(system: string, user: string): Promise<string | null> {
+// --- Google Gemini adapter (BYOK from client) ---------------------------
+
+const GEMINI_URL = (model: string, key: string) =>
+  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+
+async function callGemini(system: string, user: string, apiKey: string, timeoutMs = 45_000): Promise<string | null> {
+  if (!apiKey) return null;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(GEMINI_URL("gemini-2.0-flash", apiKey), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [{ role: "user", parts: [{ text: user }] }],
+        generationConfig: { responseMimeType: "application/json", temperature: 0.4 },
+      }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) {
+      console.warn(`[llm] gemini ${res.status}: ${(await res.text()).slice(0, 200)}`);
+      return null;
+    }
+    const j = (await res.json()) as any;
+    return j?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+  } catch (e: any) {
+    console.warn(`[llm] gemini error: ${e?.message || String(e)}`);
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+export async function callLLM(
+  system: string,
+  user: string,
+  byokKey?: { provider: "openai" | "anthropic" | "gemini"; key: string }
+): Promise<string | null> {
+  if (byokKey?.provider === "openai" && byokKey.key) {
+    const prevKey = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = byokKey.key;
+    const r = await callOpenAI(system, user);
+    if (prevKey) process.env.OPENAI_API_KEY = prevKey; else delete process.env.OPENAI_API_KEY;
+    return r;
+  }
+  if (byokKey?.provider === "anthropic" && byokKey.key) {
+    return callAnthropic(system, user, byokKey.key);
+  }
+  if (byokKey?.provider === "gemini" && byokKey.key) {
+    return callGemini(system, user, byokKey.key);
+  }
   if (process.env.OPENAI_API_KEY) return callOpenAI(system, user);
-  if (process.env.ANTHROPIC_API_KEY) return callAnthropic(system, user);
+  if (process.env.ANTHROPIC_API_KEY) return callAnthropic(system, user, process.env.ANTHROPIC_API_KEY);
   return null;
 }
 
@@ -431,6 +481,8 @@ export type EnhanceInput = {
   content: string; // plain text or simple HTML
   courseTitle?: string;
   moduleIndex?: number;
+  apiKey?: string;
+  provider?: "openai" | "anthropic" | "gemini";
 };
 
 const ENHANCE_SYSTEM = `You are an expert instructional designer who rewrites raw training material into comprehensive, well-structured SCORM 1.2 lesson modules. Your lessons are clear, concrete, and genuinely useful to a busy learner. You always respond with a single valid JSON object — no prose, no markdown fences.`;
@@ -488,7 +540,7 @@ export async function enhanceModule(input: EnhanceInput): Promise<EnhancedModule
     .replace(/\s+/g, " ")
     .trim();
 
-  const llmText = await callLLM(ENHANCE_SYSTEM, ENHANCE_PROMPT(title, courseTitle, idx, plainText));
+  const llmText = await callLLM(ENHANCE_SYSTEM, ENHANCE_PROMPT(title, courseTitle, idx, plainText), input.apiKey, input.provider);
   const parsed = extractJsonObject(llmText);
 
   let contentHtml: string;
