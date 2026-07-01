@@ -1,4 +1,5 @@
-import { handle } from "hono/vercel";
-import { app } from "../server-lib/app";
-
-export default handle(app);
+export default function (req: Request): Response {
+  return new Response(JSON.stringify({ ok: true, ts: Date.now() }), {
+    headers: { "content-type": "application/json" },
+  });
+}
